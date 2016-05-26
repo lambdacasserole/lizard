@@ -75,73 +75,107 @@ public class LzwCompressor {
         return str.substring(0, 2);
     }
 
+    /**
+     * Compresses the given data using LZW encoding.
+     * @param data          the data to compress
+     * @return              the compressed data
+     * @throws IOException
+     */
     public byte[] compress(byte[] data) throws IOException {
-        ByteArrayInputStream in = new ByteArrayInputStream(data);
+        // Initialize input stream on data.
+        ByteArrayInputStream inputStream = new ByteArrayInputStream(data);
 
         // Initialise dictionary.
-        final LzwDictionary dictionary = getInitializedDictionary();
+        LzwDictionary dictionary = getInitializedDictionary();
 
-        // Get output stream.
-        final ByteArrayOutputStream out = new ByteArrayOutputStream();
+        // Create output stream.
+        final ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
 
         String sequence = "";
-        String byteString;
 
         int buffer;
-        while ((buffer = in.read()) != -1) {
+        while ((buffer = inputStream.read()) != -1) {
+            // If dictionary is full, clear it.
+            if (dictionary.isFull()) {
+                dictionary = getInitializedDictionary();
+            }
 
-            byteString = toHex(buffer);
+            // Append buffer to sequence.
+            String byteString = toHex(buffer);
             sequence += byteString;
 
+            // If this sequence is not in the dictionary.
             if (!dictionary.hasData(sequence)) {
+                // Add it.
                 dictionary.addData(sequence);
+
+                // Remove the last byte from the sequence.
                 sequence = sequence.substring(0, sequence.length() - 2);
-                out.write(shortToByteArray(dictionary.getCode(sequence)));
+
+                // Write the code for the last sequence that was present to output.
+                outputStream.write(shortToByteArray(dictionary.getCode(sequence)));
+
+                // Start the sequence afresh with the new byte string.
                 sequence = byteString;
             }
-
         }
+
+        // Write any remaining data to output.
         if (sequence.length() != 0) {
-            out.write(shortToByteArray(dictionary.getCode(sequence)));
+            outputStream.write(shortToByteArray(dictionary.getCode(sequence)));
         }
 
-        out.close();
-
-        return out.toByteArray();
+        // Close stream and return compressed data.
+        outputStream.close();
+        return outputStream.toByteArray();
     }
 
+    /**
+     * Decompresses the given data using LZW encoding.
+     * @param data          the data to decompress
+     * @return              the decompressed data
+     * @throws IOException
+     */
     public byte[] decompress(byte[] data) throws IOException {
-        ByteArrayInputStream in = new ByteArrayInputStream(data);
+        // Initialize input stream on data.
+        ByteArrayInputStream inputStream = new ByteArrayInputStream(data);
 
-            // Initialise dictionary.
-            final LzwDictionary dictionary = getInitializedDictionary();
+        // Initialise dictionary.
+        LzwDictionary dictionary = getInitializedDictionary();
 
-            // Get checksum.
-            final byte[] checksum = new byte[1];
-            in.read(checksum);
+        // Create output stream.
+        final ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
 
-            // Get I/O streams.
-            final ByteArrayOutputStream out = new ByteArrayOutputStream();
+        String sequence = "";
 
-            String sequence = "";
-
-            final byte[] buffer = new byte[2];
-            while (in.read(buffer) != -1) {
-                final short k = byteArrayToShort(buffer);
-                if (k > dictionary.getSize()) {
-                    throw new IOException("Cannot reconstruct dictionary.");
-                } else if (k == dictionary.getSize()) {
-                    dictionary.addData(sequence + firstByte(sequence));
-                } else if (sequence.length() != 0) {
-                    dictionary.addData(sequence + firstByte(dictionary.getData(k)));
-                }
-                out.write(fromHexString(dictionary.getData(k)));
-                sequence = dictionary.getData(k);
+        // Read file 16 bits at a time (fixed length codes).
+        final byte[] buffer = new byte[2];
+        while (inputStream.read(buffer) != -1) {
+            // If dictionary is full, clear it.
+            if (dictionary.isFull()) {
+                dictionary = getInitializedDictionary();
             }
-            final byte[] payload = out.toByteArray();
 
-            out.close();
-        return payload;
+            // Decompress data, reconstructing dictionary.
+            final short code = byteArrayToShort(buffer);
+            if (code > dictionary.getSize()) {
+                throw new IOException("Cannot reconstruct dictionary.");
+            } else if (code == dictionary.getSize()) {
+                dictionary.addData(sequence + firstByte(sequence));
+            } else if (sequence.length() != 0) {
+                dictionary.addData(sequence + firstByte(dictionary.getData(code)));
+            }
+
+            // Write the code for the last sequence that was present to output.
+            outputStream.write(fromHexString(dictionary.getData(code)));
+
+            // Start the sequence afresh with the new byte string.
+            sequence = dictionary.getData(code);
+        }
+
+        // Close stream and return decompressed data.
+        outputStream.close();
+        return outputStream.toByteArray();
     }
 }
 
