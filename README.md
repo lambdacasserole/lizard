@@ -8,6 +8,30 @@ The term "LZW compression" is pretty vague. More specifically, Lizard:
 + Uses fixed-length, 16-bit codes.
 + Clears the dictionary as soon as it becomes full.
 
+## Installation
+You can pull this package into your Maven project straight from here using JitPack. Add JitPack as a repository first:
+
+```
+<repositories>
+    <repository>
+        <id>jitpack.io</id>
+        <url>https://jitpack.io</url>
+    </repository>
+</repositories>
+```
+
+Then add a dependency on Lizard:
+
+```
+<dependencies>
+    <dependency>
+        <groupId>com.github.lambdacasserole</groupId>
+        <artifactId>lizard</artifactId>
+        <version>v1.0</version>
+    </dependency>
+</dependencies>
+```
+
 ## Limitations
 Lizard won't produce archive files out-of-the-box. It's a lower-level tool for dealing with LZW compression directly. It is not optimized for speed, memory efficiency or performance. This is a naïve implementation and *oh boy is it slow*. Seriously, I literally use hexadecimal strings to build dictionary entries (yeah, I know). Note also that the code dictionary is cleared as soon as it becomes full. This creates a way-less-than-optimal compression ratio.
 
